@@ -1,0 +1,553 @@
+---
+title: "trial_simulation_6_17"
+author: "Yiling Liu"
+date: "6/17/2017"
+output: pdf_document
+---
+
+---
+title: "trial_simulation_rmd_6_12"
+author: "Yiling Liu"
+date: "6/15/2017"
+output: pdf_document
+---
+
+**Firstly we use "graphclick" to get observed data from papers and store the observed data in xlsx files.**
+
+Then we read in the file.
+```{r results = 'asis'}
+#Sampling from an Arbitrary Density
+#generating sample numbers at random from any probability distribution given its cumulative distribution function.
+#read in the observe data draw from the figure
+library("GoFKernel")
+library("cmprsk")
+library(xlsx)
+library("cmprsk")
+library("survival")
+setwd("~/Desktop/function3")
+raw.LO.inva <- read.xlsx("points of LO.xlsx",sheetIndex=1)
+LO.xy.inva <- raw.LO.inva[,1:2]
+raw.LRT.inva <- read.xlsx("LRT_inva.xlsx",sheetIndex=1)
+LRT.xy.inva <- raw.LRT.inva[,1:2]
+raw.LO.dcis <- read.xlsx("LO_dcis.xlsx",sheetIndex=1)
+LO.xy.dcis <- raw.LO.dcis[,1:2]
+raw.LRT.dcis <- read.xlsx("LRT_dcis.xlsx",sheetIndex=1)
+LRT.xy.dcis <- raw.LRT.dcis[,1:2]
+raw.LO.con <- read.xlsx("LO.con.xlsx",sheetIndex=1)
+LO.xy.con <- raw.LO.con[,1:2]
+raw.LRT.con <- read.xlsx("LRT.con.xlsx",sheetIndex=1)
+LRT.xy.con <- raw.LRT.con[,1:2]
+```
+
+**Then I use linear interpolation. Here I use graph to show the result.**
+```{r results = 'asis'}
+#linear interpolation
+fun.LO.inva <- approxfun(x=c(0,LO.xy.inva$x,60),y=c(0,LO.xy.inva$y/100,1), method="linear")
+fun.LO.dcis <- approxfun(x=c(0,LO.xy.dcis$x,60),y=c(0,LO.xy.dcis$y/100,1), method="linear")
+fun.LO.con <- approxfun(x=c(0,LO.xy.con$x,60),y=c(0,LO.xy.con$y/100,1), method="linear")
+
+fun.LRT.inva <- approxfun(x=c(0,LRT.xy.inva$x,60),y=c(0,LRT.xy.inva$y/100,1), method="linear")
+fun.LRT.dcis <- approxfun(x=c(0,LRT.xy.dcis$x,60),y=c(0,LRT.xy.dcis$y/100,1), method="linear")
+fun.LRT.con <- approxfun(x=c(0,LRT.xy.con$x,60),y=c(0,LRT.xy.con$y/100,1), method="linear")
+
+#get the inverse of these function
+inver.LO.inva <- inverse(fun.LO.inva,lower=0,upper=60)
+inver.LO.dcis <- inverse(fun.LO.dcis,lower=0,upper=60)
+inver.LO.con <- inverse(fun.LO.con,lower=0,upper=60)
+
+inver.LRT.inva <- inverse(fun.LRT.inva,lower=0,upper=60)
+inver.LRT.dcis <- inverse(fun.LRT.dcis,lower=0,upper=60)
+inver.LRT.con <- inverse(fun.LRT.con,lower=0,upper=60)
+```
+
+Since we want to input a vector of time and also return a vector. We user define a new function.
+```{r results = 'asis'}
+#return a list of output from the function
+#1 for LO.inva
+#2 for LO.dcis
+#3 for LO.con
+#4 for LRT.inva
+#5 for LRT.dcis
+#5 fot LRT.con
+fun.all <- function(u,type)
+{
+  if(type==1)
+  {
+    fun = fun.LO.inva
+  }
+  if(type==2)
+  {
+    fun = fun.LO.dcis
+  }
+  if(type==3)
+  {
+    fun = fun.LO.con
+  }
+  if(type==4)
+  {
+    fun = fun.LRT.inva
+  }
+  if(type==5)
+  {
+    fun = fun.LRT.dcis
+  }
+  if(type==6)
+  {
+    fun = fun.LRT.con
+  }
+  y.value <- rep(NA,length(u))
+  for(j in 1:length(u))
+  {
+    y.value[j] <- fun(u[j])
+  }
+  return(y.value)
+}
+```
+
+Then we compare empirical cdf from simulation to the true cdf
+For Cumulative incidence rate of Invasive LO
+```{r results = 'asis'}
+x.seq <- seq(0,60,0.01)
+y.LO.inva <- fun.all(x.seq,1)
+plot(x.seq, y.LO.inva, xlab = "Years",ylab = "cumulative incidence",
+     main = "Cumulative incidence rate of Invasive LO",lty=1,type='l',pch=1,col="red")
+par(new=TRUE)
+plot(c(0,LO.xy.inva$x),c(0,LO.xy.inva$y/100),col="purple",pch=1,cex=0.6,xlab = "Years",
+     ylab = "cumulative incidence",ylim=c(0,1),xlim=c(0,60))
+legend("topleft",
+       legend=c("Interpolation","Observed data"),
+       col =c("red","purple"),inset=.02,cex=0.6,pch=1)
+```
+
+For Cumulative incidence rate of DCIS LO
+```{r results = 'asis'}
+y.LO.dcis <- fun.all(x.seq,2)
+plot(x.seq, y.LO.dcis, xlab = "Years",ylab = "cumulative incidence",
+     main = "Cumulative incidence rate of DCIS LO",lty=1,type='l',pch=1,col="red")
+par(new=TRUE)
+plot(c(0,LO.xy.dcis$x),c(0,LO.xy.dcis$y/100),col="purple",pch=1,cex=0.6,xlab = "Years",
+     ylab = "cumulative incidence",ylim=c(0,1),xlim=c(0,60))
+legend("topleft",
+       legend=c("Interpolation","Observed data"),
+       col =c("red","purple"),inset=.02,cex=0.6,pch=1)
+```
+
+For Cumulative incidence rate of Contralateral LO
+```{r results = 'asis'}
+y.LO.con <- fun.all(x.seq,3)
+plot(x.seq, y.LO.con, xlab = "Years",ylab = "cumulative incidence",
+     main = "Cumulative incidence rate of Contralateral LO",lty=1,type='l',pch=1,col="red")
+par(new=TRUE)
+plot(c(0,LO.xy.con$x),c(0,LO.xy.con$y/100),col="purple",pch=1,cex=0.6,xlab = "Years",
+     ylab = "cumulative incidence",ylim=c(0,1),xlim=c(0,60))
+legend("topleft",
+       legend=c("Interpolation","Observed data"),
+       col =c("red","purple"),inset=.02,cex=0.6,pch=1)
+```
+
+For Cumulative incidence rate of Invasive LRT
+```{r results = 'asis'}
+x.seq <- seq(0,60,0.01)
+y.LRT.inva <- fun.all(x.seq,4)
+plot(x.seq, y.LRT.inva, xlab = "Years",ylab = "cumulative incidence",
+     main = "Cumulative incidence rate of Invasive LRT",lty=1,type='l',pch=1,col="red")
+par(new=TRUE)
+plot(c(0,LRT.xy.inva$x),c(0,LRT.xy.inva$y/100),col="purple",pch=1,cex=0.6,xlab = "Years",
+     ylab = "cumulative incidence",ylim=c(0,1),xlim=c(0,60))
+legend("topleft",
+       legend=c("Interpolation","Observed data"),
+       col =c("red","purple"),inset=.02,cex=0.6,pch=1)
+```
+
+For Cumulative incidence rate of DCIS LRT
+```{r results = 'asis'}
+y.LRT.dcis <- fun.all(x.seq,5)
+plot(x.seq, y.LRT.dcis, xlab = "Years",ylab = "cumulative incidence",
+     main = "Cumulative incidence rate of DCIS LRT",lty=1,type='l',pch=1,col="red")
+par(new=TRUE)
+plot(c(0,LRT.xy.dcis$x),c(0,LRT.xy.dcis$y/100),col="purple",pch=1,cex=0.6,xlab = "Years",
+     ylab = "cumulative incidence",ylim=c(0,1),xlim=c(0,60))
+legend("topleft",
+       legend=c("Interpolation","Observed data"),
+       col =c("red","purple"),inset=.02,cex=0.6,pch=1)
+```
+
+For Cumulative incidence rate of Contralateral LRT
+```{r results = 'asis'}
+y.LRT.con <- fun.all(x.seq,6)
+plot(x.seq, y.LRT.con, xlab = "Years",ylab = "cumulative incidence",
+     main = "Cumulative incidence rate of Contralateral LRT",lty=1,type='l',pch=1,col="red")
+par(new=TRUE)
+plot(c(0,LRT.xy.con$x),c(0,LRT.xy.con$y/100),col="purple",pch=1,cex=0.6,xlab = "Years",
+     ylab = "cumulative incidence",ylim=c(0,1),xlim=c(0,60))
+legend("topleft",
+       legend=c("Interpolation","Observed data"),
+       col =c("red","purple"),inset=.02,cex=0.6,pch=1)
+```
+
+
+**Then we use inverse transformation sampling to get the sampling result which have the above distribution.**
+Here, type=1 means for cumulative incidence rate of Invasive LO
+
+type=2 means for cumulative incidence rate of DCIS LO
+
+type=3 means for cumulative incidence rate of Contralateral Invasive LO
+
+type=4 means for cumulative incidence rate of Invasive LRT
+
+type=5 means for cumulative incidence rate of DCIS LRT
+
+type=6 means for cumulative incidence rate of Contralateral Invasive LRT
+
+
+```{r results = 'asis'}
+#get the inverse of these function
+inver.LO.inva <- inverse(fun.LO.inva,lower=0,upper=60)
+inver.LO.dcis <- inverse(fun.LO.dcis,lower=0,upper=60)
+inver.LO.con <- inverse(fun.LO.con,lower=0,upper=60)
+
+inver.LRT.inva <- inverse(fun.LRT.inva,lower=0,upper=60)
+inver.LRT.dcis <- inverse(fun.LRT.dcis,lower=0,upper=60)
+inver.LRT.con <- inverse(fun.LRT.con,lower=0,upper=60)
+
+#check whether the inverse function is correct or not
+#return a list of xvalue from the function
+#1 for LO.inva
+#2 for LO.dcis
+#3 for LO.con
+#4 for LRT.inva
+#5 for LRT.dcis
+#5 fot LRT.con
+fun.inver <- function(u,type)
+{
+  if(type==1)
+  {
+    fun = inver.LO.inva
+  }
+  if(type==2)
+  {
+    fun = inver.LO.dcis
+  }
+  if(type==3)
+  {
+    fun = inver.LO.con
+  }
+  if(type==4)
+  {
+    fun = inver.LRT.inva
+  }
+  if(type==5)
+  {
+    fun = inver.LRT.dcis
+  }
+  if(type==6)
+  {
+    fun = inver.LRT.con
+  }
+  x.value <- rep(NA,length(u))
+  for(j in 1:length(u))
+  {
+    x.value[j] <- fun(u[j])
+  }
+  return(x.value)
+}
+```
+
+
+Then we compare empirical cdf from simulation to the true cdf and double check the inverse function is right or not
+
+For Cumulative incidence rate of Invasive LO
+```{r results = 'asis'}
+y.seq <- runif(10000,0,1)
+x.LO.inva <- fun.inver(y.seq,1)
+#check that the function is correct
+plot(ecdf(x.LO.inva),xlim=c(0,60),main = "Empirical CDF vs Actual CDF",col="red",xlab = "Years",
+     ylab = "cumulative incidence")
+par(new=TRUE)
+plot(c(0,LO.xy.inva$x),c(0,LO.xy.inva$y/100),col="purple",pch=1,cex=0.6,xlab = "Years",
+     ylab = "cumulative incidence",ylim=c(0,1),xlim=c(0,60))
+legend("topleft",
+       legend=c("Empirical CDF","Actual CDF"),
+       col =c("red","purple"),inset=.02,cex=0.6,pch=1)
+```
+
+For Cumulative incidence rate of DCIS LO
+```{r results = 'asis'}
+x.LO.dcis <- fun.inver(y.seq,2)
+#check that the function is correct
+plot(ecdf(x.LO.dcis),xlim=c(0,60),main = "Empirical CDF vs Actual CDF",col="red",xlab = "Years",
+     ylab = "cumulative incidence")
+par(new=TRUE)
+plot(c(0,LO.xy.dcis$x),c(0,LO.xy.dcis$y/100),col="purple",pch=1,cex=0.6,xlab = "Years",
+     ylab = "cumulative incidence",ylim=c(0,1),xlim=c(0,60))
+legend("topleft",
+       legend=c("Empirical CDF","Actual CDF"),
+       col =c("red","purple"),inset=.02,cex=0.6,pch=1)
+```
+
+For Cumulative incidence rate of Contralateral LO
+```{r results = 'asis'}
+x.LO.con <- fun.inver(y.seq,3)
+#check that the function is correct
+plot(ecdf(x.LO.con),xlim=c(0,60),main = "Empirical CDF vs Actual CDF",col="red",xlab = "Years",
+     ylab = "cumulative incidence")
+par(new=TRUE)
+plot(c(0,LO.xy.con$x),c(0,LO.xy.con$y/100),col="purple",pch=1,cex=0.6,xlab = "Years",
+     ylab = "cumulative incidence",ylim=c(0,1),xlim=c(0,60))
+legend("topleft",
+       legend=c("Empirical CDF","Actual CDF"),
+       col =c("red","purple"),inset=.02,cex=0.6,pch=1)
+```
+
+For Cumulative incidence rate of Invasive LRT
+```{r results = 'asis'}
+x.LRT.inva <- fun.inver(y.seq,4)
+#check that the function is correct
+plot(ecdf(x.LRT.inva),xlim=c(0,60),main = "Empirical CDF vs Actual CDF",col="red",xlab = "Years",
+     ylab = "cumulative incidence")
+
+par(new=TRUE)
+plot(c(0,LRT.xy.inva$x),c(0,LRT.xy.inva$y/100),col="purple",pch=1,cex=0.6,xlab = "Years",
+     ylab = "cumulative incidence",ylim=c(0,1),xlim=c(0,60))
+legend("topleft",
+       legend=c("Empirical CDF","Actual CDF"),
+       col =c("red","purple"),inset=.02,cex=0.6,pch=1)
+```
+
+For Cumulative incidence rate of DCIS LRT
+```{r results = 'asis'}
+x.LRT.dcis <- fun.inver(y.seq,5)
+#check that the function is correct
+plot(ecdf(x.LRT.dcis),xlim=c(0,60),main = "Empirical CDF vs Actual CDF",col="red",xlab = "Years",
+     ylab = "cumulative incidence")
+par(new=TRUE)
+plot(c(0,LRT.xy.dcis$x),c(0,LRT.xy.dcis$y/100),col="purple",pch=1,cex=0.6,xlab = "Years",
+     ylab = "cumulative incidence",ylim=c(0,1),xlim=c(0,60))
+legend("topleft",
+       legend=c("Empirical CDF","Actual CDF"),
+       col =c("red","purple"),inset=.02,cex=0.6,pch=1)
+```
+
+For Cumulative incidence rate of Contralateral LRT
+```{r results = 'asis'}
+x.LRT.con <- fun.inver(y.seq,6)
+#check that the function is correct
+plot(ecdf(x.LRT.con),xlim=c(0,60),main = "Empirical CDF vs Actual CDF",col="red",xlab = "Years",
+     ylab = "cumulative incidence")
+par(new=TRUE)
+plot(c(0,LRT.xy.con$x),c(0,LRT.xy.con$y/100),col="purple",pch=1,cex=0.6,xlab = "Years",
+     ylab = "cumulative incidence",ylim=c(0,1),xlim=c(0,60))
+legend("topleft",
+       legend=c("Empirical CDF","Actual CDF"),
+       col =c("red","purple"),inset=.02,cex=0.6,pch=1)
+```
+
+Simulate the trial arms: 
+1.lumpectomy
+2.lumpectomy + radiation
+3.active surveillance. Rho=.19, psi=70%, beta=80%, lambda=.1/(5 years).
+
+
+For LO
+```{r results = 'asis'}
+#Competing Risk Graph
+N <- 10000
+y.seq.inva <- runif(N,0,1)
+y.seq.dcis <- runif(N,0,1)
+y.seq.con <- runif(N,0,1)
+#for ipsilateral invasive cancer recurrence
+LO.inva <- fun.inver(y.seq.inva,1)
+#for ipsilateral dcis recurrence
+LO.dcis <- fun.inver(y.seq.dcis,2)
+#for Contralateral recurrence
+LO.con <- fun.inver(y.seq.con,3)
+LO.time_to_event <- rep(NA,N)
+LO.type_event <- rep(NA,N)
+for (i in 1:N)
+{
+  LO.time_to_event[i] <- min(LO.inva[i],LO.dcis[i],LO.con[i])
+  if (LO.time_to_event[i]==LO.inva[i])
+  {
+    LO.type_event[i] <- "Ipsilateral Invasive"
+  }
+  if (LO.time_to_event[i]==LO.dcis[i])
+  {
+    LO.type_event[i] <- "Ipsilateral DCIS"
+  }
+  if (LO.time_to_event[i]==LO.con[i])
+  {
+    LO.type_event[i] <- "Contralateral Cancer"
+  }
+}
+
+T <- seq(0,60,0.001)
+ss.LO <- LO.time_to_event
+gg.LO <- factor(LO.type_event,c("Ipsilateral Invasive","Ipsilateral DCIS","Contralateral Cancer"))
+print(xx.LO <- cuminc(ss.LO,gg.LO))
+plot(xx.LO,main="Cumulative Incidence Risk for Considering Risk",col=1:3)
+
+#compare situation with or without competing risk
+plot(T, 1-fun.all(T,1),
+     main = "Ipsilateral invasive cancer-free survival of LO",lty=1,type='l',xlab="Years",
+     ylab="Probability",
+     pch=1,col="black",ylim=c(0,1),xlim=c(0,60))
+par(new=TRUE)
+plot(xx.LO$`1 Ipsilateral Invasive`$time,1-xx.LO$`1 Ipsilateral Invasive`$est,lty=1,col="red",type="l",
+     xlab="Years",ylab="Probability",main="Ipsilateral invasive cancer-free survival of LO",
+     ylim=c(0,1),xlim=c(0,60))
+legend("topright",
+       legend=c("Considering Competing risk","Not considering competing risk"),
+       col =c("red","black"),inset=.02,cex=0.5,pch=1)
+
+```
+
+For LRT
+```{r results = 'asis'}
+#for ipsilateral invasive cancer recurrence
+N <- 10000
+y.seq.inva <- runif(N,0,1)
+y.seq.dcis <- runif(N,0,1)
+y.seq.con <- runif(N,0,1)
+
+LRT.inva <- fun.inver(y.seq.inva,4)
+#for ipsilateral dcis recurrence
+LRT.dcis <- fun.inver(y.seq.dcis,5)
+#for Contralateral recurrence
+LRT.con <- fun.inver(y.seq.con,6)
+LRT.time_to_event <- rep(NA,N)
+LRT.type_event <- rep(NA,N)
+
+for (i in 1:N)
+{
+  LRT.time_to_event[i] <- min(LRT.inva[i],LRT.dcis[i],LRT.con[i])
+  if (LRT.time_to_event[i]==LRT.inva[i])
+  {
+    LRT.type_event[i] <- "Ipsilateral Invasive"
+  }
+  if (LRT.time_to_event[i]==LRT.dcis[i])
+  {
+    LRT.type_event[i] <- "Ipsilateral DCIS"
+  }
+  if (LRT.time_to_event[i]==LRT.con[i])
+  {
+    LRT.type_event[i] <- "Contralateral Cancer"
+  }
+}
+
+
+T <- seq(0,60,0.001)
+set.seed(2)
+ss.LRT <- LRT.time_to_event
+gg.LRT <- factor(LRT.type_event,c("Ipsilateral Invasive","Ipsilateral DCIS","Contralateral Cancer"))
+print(xx.LRT <- cuminc(ss.LRT,gg.LRT))
+plot(xx.LRT,main="Cumulative Incidence Risk Considering Competing Risk",col=1:3)
+
+plot(T, 1-fun.all(T,4),
+     main = "Ipsilateral invasive cancer-free survival of LRT",lty=1,type='l',xlab="Years",
+     ylab="Probability",
+     pch=1,col=1,ylim=c(0,1),xlim=c(0,60))
+par(new=TRUE)
+plot(xx.LRT$`1 Ipsilateral Invasive`$time,1-xx.LRT$`1 Ipsilateral Invasive`$est,lty=1,col="red",type="l",
+     xlab="Years",ylab="Probability",main="Ipsilateral invasive cancer-free survival of LRT",
+     ylim=c(0,1),xlim=c(0,60))
+legend("topright",
+       legend=c("Considering Competing risk","Not considering competing risk"),
+       col =c("red","black"),inset=.02,cex=0.5,pch=1)
+```
+
+For AS
+```{r results = 'asis'}
+setwd("~/COMET_trial/COMET_trial_simulation/COMET_trial_6_12")
+source("AS functions.R")
+T <- 1
+cum.cal(ti=T,deltat=3/12,N7=10000,n.sim = 50,beta=0.8,psi=0.7,rho=0.19,lambda=0.1)
+```
+
+
+Simulation of trials: for each woman, record time of first event, and type of first event. 
+Then compare “ipsilateral invasive cancer-free survival”, starting with a Kaplan Meier analysis. start with simulate 10000 women
+
+Comparing two survival curve
+
+For LO
+```{r results = 'asis'}
+N <- 10000
+y.seq.inva <- runif(N,0,1)
+LO.inva <- fun.inver(y.seq.inva,1)
+#Surv(LO.inva) 
+event <- rep(1,N)
+time <- LO.inva
+id <- 1:N
+mydat <- data.frame(id, time, event)
+#Surv(mydat$time, mydat$event)
+fit1 <- survfit(Surv(mydat$time, mydat$event)~1 ,data=mydat,conf.type="none")
+plot(fit1,xlim=c(0,60),ylim=c(0,1),col="black")
+par(new=TRUE)
+T <- seq(0,60,0.001)
+plot(T, 1-fun.all(T,1),
+     main = "Ipsilateral invasive cancer-free survival of LO",lty=1,type='l',xlab="Years",
+     ylab="Probability",
+     pch=1,col="blue",xaxs="i",xlim=c(0,60),ylim=c(0,1))
+
+legend("topright",
+       legend=c("Survial Analysis","Theoretical curve"),
+       col =c("black","blue"),inset=.02,cex=0.5,lty =1)
+
+```
+
+
+For LRT
+```{r results = 'asis'}
+N <- 10000
+y.seq.inva <- runif(N,0,1)
+LRT.inva <- fun.inver(y.seq.inva,4)
+event2 <- rep(1,N)
+time2 <- LRT.inva
+id2 <- 1:N
+mydat2 <- data.frame(id2, time2, event2)
+
+fit2<- survfit(Surv(mydat2$time2, mydat2$event2)~1 ,data=mydat2,conf.type="none")
+plot(fit2,xlim=c(0,60),ylim=c(0,1))
+par(new=TRUE)
+T <- seq(0,60,0.001)
+plot(T, 1-fun.all(T,4),
+     main = "Ipsilateral invasive cancer-free survival of LRT",lty=1,type='l',xlab="Years",
+     ylab="Probability",
+     pch=1,col="blue",xaxs="i")
+
+legend("topright",
+       legend=c("Survial Analysis","Theoretical curve"),
+       col =c("black","blue"),inset=.02,cex=0.5,lty=1)
+```
+
+
+Based on the trial protocol, we interest in two-year ipsilateral invasive cancer rate as primary objective, also 2-year contralateral invasive breast cancer rate as secondary objective.
+```{r results = 'asis'}
+#2 year rate
+#for LO group
+fun.LO.inva(2)
+fun.LO.con(2)
+
+#for LRT group
+fun.LRT.inva(2)
+fun.LRT.con(2)
+
+#for AS group
+cum.cal(ti=2,deltat=3/12,N7=10000,n.sim = 50,beta=0.8,psi=0.7,rho=0.19,lambda=0.1)$mean.pro
+fun.LO.con(2)
+
+Ipsilateral.invasive <- c(fun.LO.inva(2),fun.LRT.inva(2),
+                          cum.cal(ti=2,deltat=3/12,N7=10000,n.sim = 50,beta=0.8,psi=0.7,rho=0.19,lambda=0.1)$mean.pro)
+Contralateral.invasive <- c(fun.LO.con(2),fun.LRT.con(2),fun.LO.con(2))
+
+
+two.year.rate <- data.frame(Ipsilateral.invasive, Contralateral.invasive)
+rownames(two.year.rate) <- c("LO","LRT","AS")
+knitr::opts_chunk$set(cache=TRUE)
+library(xtable)
+options(xtable.comment = FALSE)
+two.year.rate <- xtable(two.year.rate,caption = "Summary of estimated 2-year Cancer Incidence rate")
+print(two.year.rate,sanitize.text.function=function(x){x})
+```
+
+
