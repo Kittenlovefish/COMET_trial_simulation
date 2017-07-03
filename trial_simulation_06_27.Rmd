@@ -1,0 +1,695 @@
+---
+title: "trial_simulation_06_27"
+author: "Yiling Liu"
+date: "7/3/2017"
+output: pdf_document
+---
+
+```{r, warning=FALSE, message=FALSE}
+# load library and source function
+library("GoFKernel")
+library("cmprsk")
+library(xlsx)
+library("binom")
+library("survival")
+library(Gmisc)
+library(xtable)
+setwd("~/COMET_trial/COMET_trial_simulation/COMET_trial_6_12")
+source("trial_simulation_06_24.R")
+```
+
+Finish the code for the trial simulations. There should be three different types of trials: AS vs Lx, AS vs Lx+Rx, AS vs GCC, where GCC is the one where women choose randomly which treatment option (Lx, Lx+Rx, Mx)
+```{r, warning=FALSE, message=FALSE}
+#both have to use output from cumic function!!!!!
+#for LO compare to AS
+#for AS
+N <- 10000
+psi <- 0.7
+ti=10
+deltat=1/12
+beta=0.8
+psi=0.7
+rho=0.19
+lambda=0.1
+
+u <- sample(c(0,1),N,prob=c(rho,1-rho),replace = TRUE)
+#assume 0 is wrong diagnosis and 1 is right diagnosis
+u[u==1] <- sample(c(1,Inf),sum(u==1),prob=c(psi,1-psi),replace = TRUE)  
+#assume 1 is finite  and Inf is inf
+u[u==1] <- sample(rexp(N,lambda),sum(u==1)) 
+
+rand_vect_cont <- function(n=4,N) 
+{
+  ma <- NULL
+  for(i in 1:N)
+  {
+  vec <- runif(n)
+  ma<- rbind(vec/sum(vec),ma)
+  }
+  return(ma)
+}
+
+ma3 <- rand_vect_cont(3,N)
+prob.as.con <- ma3[,1]
+year.as.con <- fun.inver(prob.as.con,3)
+
+as.time <- rep(NA,length(N))
+as.type <- rep(NA,length(N))
+
+for (i in 1:N)
+{
+  as.time[i] <- min(year.as.con,u)
+  
+  if (as.time[i]==u[i])
+  {
+    as.type[i] <- "Ipsilateral Invasive"
+  }
+  if (as.time[i]==year.as.con[i])
+  {
+    as.type[i] <- "Contralateral Cancer"
+  }
+}
+
+
+
+
+
+#for LO
+N <- 10000
+ma.lo <- rand_vect_cont(4,N)
+
+prob.alllo.inva <- runif(N,0,1)    #ma.lo[,1]
+prob.alllo.dcis <- runif(N,0,1)    #ma.lo[,2]
+prob.alllo.con <-  runif(N,0,1)    #ma.lo[,3]
+
+#for ipsilateral invasive cancer recurrence
+allLO.inva <- fun.inver(prob.alllo.inva,1)
+#for ipsilateral dcis recurrence
+allLO.dcis <- fun.inver(prob.alllo.dcis,2)
+#for Contralateral recurrence
+allLO.con <- fun.inver(prob.alllo.con,3)
+
+allLO.time <- rep(NA,N)
+allLO.type <- rep(NA,N)
+
+for (i in 1:N)
+{
+  allLO.time[i] <- min(allLO.inva[i],allLO.dcis[i],allLO.con[i])
+  if (allLO.time[i]==allLO.inva[i])
+  {
+    allLO.type[i] <- "Ipsilateral Invasive"
+  }
+  if (allLO.time[i]==allLO.dcis[i])
+  {
+    allLO.type[i] <- "Ipsilateral DCIS"
+  }
+  if (allLO.time[i]==allLO.con[i])
+  {
+    allLO.type[i] <- "Contralateral Cancer"
+  }
+}
+
+
+
+#for LO
+T <- seq(0,60,0.001)
+ss.LO <- allLO.time
+gg.LO <- factor(allLO.type,c("Ipsilateral Invasive","Ipsilateral DCIS","Contralateral Cancer"))
+print(xx.LO <- cuminc(ss.LO,gg.LO))
+plot(xx.LO,main="Cumulative Incidence Risk for Competing Risk",col=1:3,xlim=c(0,20))
+
+T <- seq(0.1,60,0.5)
+fun.AS <- function(u)
+{
+  AS.value <- rep(NA,length(u))
+  for(j in 1:length(u))
+  {
+    AS.value[j] <- cum.cal(ti=u[j],deltat=1/12,N7=10000,n.sim = 1,
+                           beta=0.8,psi=0.7,rho=0.19,lambda=0.1)$mean.pro
+  }
+  return(AS.value)
+}
+
+cum.inva.AS <- fun.AS(c(T))
+
+plot(c(0,T), c(0,cum.inva.AS),
+     main = "Cumulative Incidence rate for Ipsilateral invasive cancer",lty=1,type='l',xlab="Years",
+     ylab="Cumulative incidence",
+     pch=1,col="blue",ylim=c(0,1),xlim=c(0,20))
+
+par(new=TRUE)
+plot(xx.LO$`1 Ipsilateral Invasive`$time,xx.LO$`1 Ipsilateral Invasive`$est,lty=1,col="red",type="l",
+     xlab="Years",ylab="Cumulative incidence",main="Cumulative Incidence rate for Ipsilateral invasive cancer",
+     ylim=c(0,1),xlim=c(0,20))
+
+legend("topright",
+       legend=c("Lumpectomy Arm","AS Arm"),
+       col =c("red","blue"),inset=.02,cex=0.5,lty =1)
+
+
+#for LRT
+#for ipsilateral Invasive cancer
+#for LO
+N <- 10000
+ma.lrt <- rand_vect_cont(4,N)
+
+prob.alllrt.inva <- runif(N,0,1)  #ma.lrt[,1]
+prob.alllrt.dcis <-runif(N,0,1)  #ma.lrt[,2]
+prob.alllrt.con <- runif(N,0,1)   #ma.lrt[,3]
+
+#for ipsilateral invasive cancer recurrence
+allLrt.inva <- fun.inver(prob.alllrt.inva,4)
+#for ipsilateral dcis recurrence
+allLrt.dcis <- fun.inver(prob.alllrt.dcis,5)
+#for Contralateral recurrence
+allLrt.con <- fun.inver(prob.alllrt.con,6)
+
+allLrt.time <- rep(NA,N)
+allLrt.type <- rep(NA,N)
+
+for (i in 1:N)
+{
+  allLrt.time[i] <- min(allLrt.inva[i],allLrt.dcis[i],allLrt.con[i])
+  if (allLrt.time[i]==allLrt.inva[i])
+  {
+    allLrt.type[i] <- "Ipsilateral Invasive"
+  }
+  if (allLrt.time[i]==allLrt.dcis[i])
+  {
+    allLrt.type[i] <- "Ipsilateral DCIS"
+  }
+  if (allLrt.time[i]==allLrt.con[i])
+  {
+    allLrt.type[i] <- "Contralateral Cancer"
+  }
+}
+
+
+T <- seq(0,60,0.001)
+ss.Lrt <- allLrt.time
+gg.Lrt <- factor(allLrt.type,c("Ipsilateral Invasive","Ipsilateral DCIS","Contralateral Cancer"))
+print(xx.Lrt <- cuminc(ss.Lrt,gg.Lrt))
+plot(xx.Lrt,main="Cumulative Incidence Risk for Competing Risk in LRT group",col=1:3,xlim=c(0,20))
+
+
+T <- seq(0.1,60,0.5)
+plot(c(0,T), c(0,cum.inva.AS),
+     main = "Cumulative Incidence rate for Ipsilateral invasive cancer",lty=1,type='l',xlab="Years",
+     ylab="Cumulative incidence",
+     pch=1,col="blue",ylim=c(0,1),xlim=c(0,20))
+
+par(new=TRUE)
+plot(xx.Lrt$`1 Ipsilateral Invasive`$time,xx.Lrt$`1 Ipsilateral Invasive`$est,lty=1,col="red",type="l",
+     xlab="Years",ylab="Cumulative incidence",main="Cumulative Incidence rate for Ipsilateral invasive cancer",
+     ylim=c(0,1),xlim=c(0,20))
+
+legend("topright",
+       legend=c("Lumpectomy+Radiation Arm","AS Arm"),
+       col =c("red","blue"),inset=.02,cex=0.5,lty =1)
+
+
+#compare LRT and AS for Contralateral Invasive
+plot(xx.LO$`1 Contralateral Cancer`$time,xx.LO$`1 Contralateral Cancer`$est,lty=1,col="blue",type="l",
+     xlab="Years",ylab="Cumulative incidence",main="Cumulative Incidence rate for Contralateral cancer",
+     ylim=c(0,1),xlim=c(0,20))
+par(new=TRUE)
+plot(xx.Lrt$`1 Contralateral Cancer`$time,xx.Lrt$`1 Contralateral Cancer`$est,lty=1,col="red",type="l",
+     xlab="Years",ylab="Cumulative incidence",main="Cumulative Incidence rate for Contralateral cancer",
+     ylim=c(0,1),xlim=c(0,20))
+
+legend("topright",
+       legend=c("Lumpectomy+Radiation Arm","AS Arm"),
+       col =c("red","blue"),inset=.02,cex=0.5,lty =1)
+
+
+#rescale the proportion
+#Mastectomy 27.1%
+#lumpectomy 20.8%
+#Lumpectomy + Radiation 52.1%
+library("gtools")
+
+N <- 10000
+index.vector <- sample(c(1,2,3), N, prob=c(0.271,0.208,0.521),replace = TRUE)
+#1 for Mastectomy
+#2 for lumpectomy
+#3 for Lumpectomy + Radiation
+
+#check correct or not
+sum(index.vector==1)
+sum(index.vector==2)
+sum(index.vector==3)
+
+#for each woman generate the history according to the group
+#each group contain two things, time to event, type of event
+
+index.mx <- which(index.vector==1)
+index.lx <- which(index.vector==2)
+index.lrt <- which(index.vector==3)
+
+
+#for lumpectomy group
+
+#function to draw random probability for each competing risk
+rand_vect_cont <- function(n=4,N) 
+{
+  ma <- NULL
+  for(i in 1:N)
+  {
+  vec <- runif(n)
+  ma<- rbind(vec/sum(vec),ma)
+  }
+  return(ma)
+}
+
+ma1 <- rand_vect_cont(4,length(index.lx))
+
+prob.lo.inva <- runif(length(index.lx),0,1) #ma1[,1]
+prob.lo.dcis <- runif(length(index.lx),0,1) #ma1[,2]
+prob.lo.con <- runif(length(index.lx),0,1) #ma1[,3]
+
+#for ipsilateral invasive cancer recurrence
+year.lo.inva <- fun.inver(prob.lo.inva,1)
+#for ipsilateral dcis recurrence
+year.lo.dcis <- fun.inver(prob.lo.dcis,2)
+#for Contralateral recurrence
+year.lo.con <- fun.inver(prob.lo.con,3)
+
+
+#contain two things, time to event, type of event
+Lo.time <- rep(NA,length(index.lx))
+Lo.type <- rep(NA,length(index.lx))
+
+
+for (i in 1:length(index.lx))
+{
+  Lo.time[i] <- min(year.lo.inva[i],year.lo.dcis[i],year.lo.con[i])
+  if (Lo.time[i]==year.lo.inva[i])
+  {
+    Lo.type[i] <- "Ipsilateral Invasive"
+  }
+  if (Lo.time[i]==year.lo.dcis[i])
+  {
+    Lo.type[i] <- "Ipsilateral DCIS"
+  }
+  if (Lo.time[i]==year.lo.con[i])
+  {
+    Lo.type[i] <- "Contralateral Cancer"
+  }
+}
+
+
+#for Lumpectomy + Radiation
+ma2 <- rand_vect_cont(4,length(index.lrt))
+
+prob.lrt.inva <-runif(length(index.lrt),0,1) #ma2[,1]
+prob.lrt.dcis <-runif(length(index.lrt),0,1) #ma2[,2]
+prob.lrt.con <- runif(length(index.lrt),0,1) #ma2[,3]
+
+#for ipsilateral invasive cancer recurrence
+year.lrt.inva <- fun.inver(prob.lrt.inva,4)
+#for ipsilateral dcis recurrence
+year.lrt.dcis <- fun.inver(prob.lrt.dcis,5)
+#for Contralateral recurrence
+year.lrt.con <- fun.inver(prob.lrt.con,6)
+
+
+#contain two things, time to event, type of event
+Lrt.time <- rep(NA,length(index.lrt))
+Lrt.type <- rep(NA,length(index.lrt))
+
+
+for (i in 1:length(index.lrt))
+{
+  Lrt.time[i] <- min(year.lrt.inva[i],year.lrt.dcis[i],year.lrt.con[i])
+  if (Lrt.time[i]==year.lrt.inva[i])
+  {
+    Lrt.type[i] <- "Ipsilateral Invasive"
+  }
+  if (Lrt.time[i]==year.lrt.dcis[i])
+  {
+    Lrt.type[i] <- "Ipsilateral DCIS"
+  }
+  if (Lrt.time[i]==year.lrt.con[i])
+  {
+    Lrt.type[i] <- "Contralateral Cancer"
+  }
+}
+
+#1 for Mastectomy
+#foor Mx with constant hazard lambda
+#P(rec@10 years)=0.01=1-e^{-10*lambda}
+#rate for ipsilateral invasive
+#rate for ipsilateral DCIS equal to 0
+#so time to event must be ipsilateral invasive, not ipsilateral dcis and contralateral cancer
+harz <- log(0.99)/(-10)
+mx.time <- rexp(length(index.mx),rate=harz)
+mx.type <- rep("Ipsilateral Invasive",length(index.mx))
+
+lrm.time <- c(Lo.time,Lrt.time,mx.time)
+lrm.type <- c(Lo.type,Lrt.type,mx.type)
+
+T <- seq(0,60,0.001)
+ss.lrm <- lrm.time
+gg.lrm <- factor(lrm.type,c("Ipsilateral Invasive","Ipsilateral DCIS","Contralateral Cancer"))
+print(xx.lrm <- cuminc(ss.lrm,gg.lrm))
+plot(xx.lrm,main="Cumulative Incidence Risk for Competing Risk in Mixed group",col=1:3,xlim=c(0,20))
+
+#Compare Mixed to AS in ipsilateral Invasive
+T <- seq(0.1,60,0.5)
+plot(c(0,T), c(0,cum.inva.AS),
+     main = "Cumulative Incidence rate for Ipsilateral invasive cancer",lty=1,type='l',xlab="Years",
+     ylab="Cumulative incidence",
+     pch=1,col="blue",ylim=c(0,1),xlim=c(0,20))
+
+par(new=TRUE)
+plot(xx.lrm$`1 Ipsilateral Invasive`$time,xx.lrm$`1 Ipsilateral Invasive`$est,lty=1,col="red",type="l",
+     xlab="Years",ylab="Cumulative incidence",main="Cumulative Incidence rate for Ipsilateral invasive cancer",
+     ylim=c(0,1),xlim=c(0,20))
+
+legend("topright",
+       legend=c("Lumpectomy+Radiation+Mastectomy Arm","AS Arm"),
+       col =c("red","blue"),inset=.02,cex=0.5,lty =1)
+
+
+
+#Compare Mixed to AS in Contralateral cancer
+plot(xx.LO$`1 Contralateral Cancer`$time,xx.LO$`1 Contralateral Cancer`$est,lty=1,col="blue",type="l",
+     xlab="Years",ylab="Cumulative incidence",main="Cumulative Incidence rate for Contralateral cancer",
+     ylim=c(0,1),xlim=c(0,20))
+par(new=TRUE)
+plot(xx.lrm$`1 Contralateral Cancer`$time,xx.lrm$`1 Contralateral Cancer`$est,lty=1,col="red",type="l",
+     xlab="Years",ylab="Cumulative incidence",main="Cumulative Incidence rate for Contralateral cancer",
+     ylim=c(0,1),xlim=c(0,20))
+
+legend("topright",
+       legend=c("Lumpectomy+Radiation Arm","AS Arm"),
+       col =c("red","blue"),inset=.02,cex=0.5,lty =1)
+
+```
+
+
+At 2, 5 and 10 years, compute ipsilateral disease-free survival and CI for both AS and ‘control arm’ (Lx/Lx+Rx/Mx), based on KM
+```{r results = 'asis'}
+knitr::opts_chunk$set(cache=TRUE)
+#At 2, 5 and 10 years, compute ipsilateral disease-free survival and CI for both AS 
+#and ‘control arm’ (Lx/Lx+Rx/Mx), based on KM
+#for LO
+event <- allLO.type
+event <- ifelse(event=="Ipsilateral Invasive",1,0)
+time <- allLO.time
+id <- 1:N
+mydat <- data.frame(id, time, event)
+#Surv(mydat$time, mydat$event)
+fit1 <- survfit(Surv(mydat$time, mydat$event)~1 ,data=mydat)
+
+#for Lumpectomy and Radiation
+event2 <- allLrt.type
+event2 <- ifelse(event2=="Ipsilateral Invasive",1,0)
+time2 <- allLrt.time
+id2 <- 1:N
+mydat2 <- data.frame(id2, time2, event2)
+fit2<- survfit(Surv(mydat2$time2, mydat2$event2)~1 ,data=mydat2)
+
+
+#for GCC
+event3 <- lrm.type
+event3 <- ifelse(event3=="Ipsilateral Invasive",1,0)
+time3 <- lrm.time
+id3 <- 1:N
+mydat3 <- data.frame(id3, time3, event3)
+fit3<- survfit(Surv(mydat3$time3, mydat3$event3)~1 ,data=mydat3)
+
+#use KM estimator and also get CI
+#extract confidence interval
+#for Lumpectomy
+#for year2
+lo.ci.2 <- paste(round(mean(fit1$surv[round(fit1$time,2)==2]),3),"(",
+                 round(mean(fit1$lower[round(fit1$time,2)==2]),3),",",
+                 round(mean(fit1$upper[round(fit1$time,2)==2]),3),")")
+#for year5
+lo.ci.5 <- paste(round(mean(fit1$surv[round(fit1$time,2)==5]),3),"(",
+                 round(mean(fit1$lower[round(fit1$time,2)==5]),3),",",
+                 round(mean(fit1$upper[round(fit1$time,2)==5]),3),")")
+#for year10
+lo.ci.10 <- paste(round(mean(fit1$surv[round(fit1$time,2)==10]),3),"(",
+                  round(mean(fit1$lower[round(fit1$time,2)==10]),3),",",
+                  round(mean(fit1$upper[round(fit1$time,2)==10]),3),")")
+
+
+#for Lumpectomy+Radiation
+#for year2
+lrt.ci.2 <- paste(round(mean(fit2$surv[round(fit2$time,2)==2]),3),"(",
+                  round(mean(fit2$lower[round(fit2$time,2)==2]),3),",",
+                  round(mean(fit2$upper[round(fit2$time,2)==2]),3),")")
+
+#for year5
+lrt.ci.5 <- paste(round(mean(fit2$surv[round(fit2$time,1)==5]),3),"(",
+                  round(mean(fit2$lower[round(fit2$time,1)==5]),3),",",
+                  round(mean(fit2$upper[round(fit2$time,1)==5]),3),")")
+
+#for year10
+lrt.ci.10 <- paste(round(mean(fit2$surv[round(fit2$time,1)==10]),3),"(",
+                   round(mean(fit2$lower[round(fit2$time,1)==10]),3),",",
+                   round(mean(fit2$upper[round(fit2$time,1)==10]),3),")")
+
+
+#for Lumpectomy+Radiation+Matectomy
+#for year2
+lrm.ci.2 <- paste(round(mean(fit3$surv[round(fit3$time,2)==2]),3),"(",
+                  round(mean(fit3$lower[round(fit3$time,2)==2]),3),",",
+                  round(mean(fit3$upper[round(fit3$time,2)==2]),3),")")
+
+#for year5
+lrm.ci.5 <- paste(round(mean(fit3$surv[round(fit3$time,2)==5]),3),"(",
+                  round(mean(fit3$lower[round(fit3$time,2)==5]),3),",",
+                  round(mean(fit3$upper[round(fit3$time,2)==5]),3),")")
+
+#for year10
+lrm.ci.10 <- paste(round(mean(fit3$surv[round(fit3$time,1)==10]),3),"(",
+                   round(mean(fit3$lower[round(fit3$time,1)==10]),3),",",
+                   round(mean(fit3$upper[round(fit3$time,1)==10]),3),")")
+
+
+#AS
+#Estimate fraction for AS
+setwd("~/COMET_trial/COMET_trial_simulation/COMET_trial_6_12")
+source("AS functions.R")
+ASest.2 <- cum.cal(ti=2,deltat=1/12,N7=10000,n.sim = 5,
+                   beta=0.8,psi=0.7,rho=0.19,lambda=0.1)$mean.pro
+
+ASest.5 <- cum.cal(ti=5,deltat=1/12,N7=10000,n.sim = 5,
+                   beta=0.8,psi=0.7,rho=0.19,lambda=0.1)$mean.pro
+
+ASest.10 <- cum.cal(ti=10,deltat=1/12,N7=10000,n.sim = 5,
+                    beta=0.8,psi=0.7,rho=0.19,lambda=0.1)$mean.pro
+
+
+#CI
+AS.est.ci <- rbind(binom.confint(round(N*ASest.2),N,level=0.95,methods = "exact"),
+                   binom.confint(round(N*ASest.5),N,level=0.95,methods = "exact"),
+                   binom.confint(round(N*ASest.10),N,level=0.95,methods = "exact"))[,4:6]
+
+#CI for disearse-free survival
+AS.ci.sur <- 1-AS.est.ci
+AS.ci.sur <- AS.ci.sur[,c(1,3,2)]
+names(AS.ci.sur) <- names(AS.ci.sur)[c(1,3,2)]
+
+
+#for year2
+as.ci.2 <- paste(round(AS.ci.sur[1,1],3),"(",
+                  round(AS.ci.sur[1,2],3),",",
+                  round(AS.ci.sur[1,3],3),")")
+
+#for year5
+as.ci.5 <- paste(round(AS.ci.sur[2,1],3),"(",
+                  round(AS.ci.sur[2,2],3),",",
+                  round(AS.ci.sur[2,3],3),")")
+
+
+#for year10
+as.ci.10 <- paste(round(AS.ci.sur[3,1],3),"(",
+                  round(AS.ci.sur[3,2],3),",",
+                  round(AS.ci.sur[3,3],3),")")
+
+LO.km <- c(lo.ci.2,lo.ci.5,lo.ci.10)
+lrt.km <- c(lrt.ci.2,lrt.ci.5,lrt.ci.10)
+lrm.km <- c(lrm.ci.2,lrm.ci.5,lrm.ci.10)
+as.km <- c(as.ci.2,as.ci.5,as.ci.10)
+KM <- data.frame(LO.km,lrt.km,lrm.km,as.km)
+colnames(KM)[1] <- "K-M Estimator for Lx"
+colnames(KM)[2] <- "K-M Estimator for LRT"
+colnames(KM)[3] <- "K-M Estimator for LRT+Mx"
+colnames(KM)[4] <- "K-M Estimator for AS"
+
+
+rownames(KM)[1] <- "Year2"
+rownames(KM)[2] <- "Year5"
+rownames(KM)[3] <- "Year10"
+
+options(xtable.comment = FALSE)
+KM <- xtable(KM,caption = "KM estimator and Confidence Interval for Ipsilateral Cancer-free Survival")
+print(KM,sanitize.text.function=function(x){x})
+```
+
+
+Do a competing risk analysis where you compute cumultative incidence of ipsilateral disease and CI (use cuminc) for both AS and ‘control arm’ [same as above, but do competing risk instead of KM
+```{r results = 'asis'}
+knitr::opts_chunk$set(cache=TRUE)
+#Do a competing risk analysis where you compute cumultative incidence 
+#of ipsilateral disease and CI
+xx.lrt.time <- xx.Lrt$`1 Ipsilateral Invasive`$time
+xx.lrt.est <- xx.Lrt$`1 Ipsilateral Invasive`$est
+
+
+mean(xx.lrt.est[round(xx.lrt.time,2)==2])
+
+#use cuminc and also get CI
+#extract confidence interval
+#for Lumpectomy
+#for year2
+set.seed(123)
+xx.lO.time <- xx.LO$`1 Ipsilateral Invasive`$time
+xx.lO.est <- xx.LO$`1 Ipsilateral Invasive`$est
+
+LO.cum.2 <- mean(xx.lO.est[round(xx.lO.time,2)==2])
+LO.cum.5 <- mean(xx.lO.est[round(xx.lO.time,1)==5])
+LO.cum.10 <- mean(xx.lO.est[round(xx.lO.time,1)==10])
+
+N <- 10000
+Lo.cumest.ci <- rbind(binom.confint(round(N*LO.cum.2),N,level=0.95,methods = "exact"),
+                   binom.confint(round(N*LO.cum.5),N,level=0.95,methods = "exact"),
+                   binom.confint(round(N*LO.cum.10),N,level=0.95,methods = "exact"))[,4:6]
+
+
+#for year2
+Lo.cumest.ci.2 <- paste(round(Lo.cumest.ci[1,1],3),"(",
+                 round(Lo.cumest.ci[1,2],3),",",
+                 round(Lo.cumest.ci[1,3],3),")")
+
+#for year5
+Lo.cumest.ci.5 <- paste(round(Lo.cumest.ci[2,1],3),"(",
+                        round(Lo.cumest.ci[2,2],3),",",
+                        round(Lo.cumest.ci[2,3],3),")")
+
+
+#for year10
+Lo.cumest.ci.10 <- paste(round(Lo.cumest.ci[3,1],3),"(",
+                        round(Lo.cumest.ci[3,2],3),",",
+                        round(Lo.cumest.ci[3,3],3),")")
+
+
+#for Lumpectomy+Radiation
+#for year2
+set.seed(123)
+xx.lrt.time <- xx.Lrt$`1 Ipsilateral Invasive`$time
+xx.lrt.est <- xx.Lrt$`1 Ipsilateral Invasive`$est
+
+Lrt.cum.2 <- mean(xx.lrt.est[round(xx.lrt.time,2)==2])
+Lrt.cum.5 <- mean(xx.lrt.est[round(xx.lrt.time,1)==5])
+Lrt.cum.10 <- mean(xx.lrt.est[round(xx.lrt.time)==10])
+
+
+Lrt.cumest.ci <- rbind(binom.confint(round(N*Lrt.cum.2),N,level=0.95,methods = "exact"),
+                      binom.confint(round(N*Lrt.cum.5),N,level=0.95,methods = "exact"),
+                      binom.confint(round(N*Lrt.cum.10),N,level=0.95,methods = "exact"))[,4:6]
+
+
+#for year2
+Lrt.cumest.ci.2 <- paste(round(Lrt.cumest.ci[1,1],3),"(",
+                        round(Lrt.cumest.ci[1,2],3),",",
+                        round(Lrt.cumest.ci[1,3],3),")")
+
+#for year5
+Lrt.cumest.ci.5 <- paste(round(Lrt.cumest.ci[2,1],3),"(",
+                        round(Lrt.cumest.ci[2,2],3),",",
+                        round(Lrt.cumest.ci[2,3],3),")")
+
+
+#for year10
+Lrt.cumest.ci.10 <- paste(round(Lrt.cumest.ci[3,1],3),"(",
+                         round(Lrt.cumest.ci[3,2],3),",",
+                         round(Lrt.cumest.ci[3,3],3),")")
+
+
+
+
+
+
+#for Lumpectomy+Radiation+Matectomy
+set.seed(123)
+xx.lrm.time <- xx.lrm$`1 Ipsilateral Invasive`$time
+xx.lrm.est <- xx.lrm$`1 Ipsilateral Invasive`$est
+
+Lrm.cum.2 <- mean(xx.lrm.est[round(xx.lrm.time,1)==2])
+Lrm.cum.5 <- mean(xx.lrm.est[round(xx.lrm.time,1)==5])
+Lrm.cum.10 <- mean(xx.lrm.est[round(xx.lrm.time,1)==10])
+
+
+Lrm.cumest.ci <- rbind(binom.confint(round(N*Lrm.cum.2),N,level=0.95,methods = "exact"),
+                       binom.confint(round(N*Lrm.cum.5),N,level=0.95,methods = "exact"),
+                       binom.confint(round(N*Lrm.cum.10),N,level=0.95,methods = "exact"))[,4:6]
+
+
+#for year2
+Lrm.cumest.ci.2 <- paste(round(Lrm.cumest.ci[1,1],3),"(",
+                         round(Lrm.cumest.ci[1,2],3),",",
+                         round(Lrm.cumest.ci[1,3],3),")")
+
+#for year5
+Lrm.cumest.ci.5 <- paste(round(Lrm.cumest.ci[2,1],3),"(",
+                         round(Lrm.cumest.ci[2,2],3),",",
+                         round(Lrm.cumest.ci[2,3],3),")")
+
+
+#for year10
+Lrm.cumest.ci.10 <- paste(round(Lrm.cumest.ci[3,1],3),"(",
+                          round(Lrm.cumest.ci[3,2],3),",",
+                          round(Lrm.cumest.ci[3,3],3),")")
+
+
+
+
+#AS
+#Estimate fraction for AS
+
+
+
+
+#for year2
+as.cumci.2 <- paste(round(AS.est.ci[1,1],3),"(",
+                 round(AS.est.ci[1,2],3),",",
+                 round(AS.est.ci[1,3],3),")")
+
+#for year5
+as.cumci.5 <- paste(round(AS.est.ci[2,1],3),"(",
+                 round(AS.est.ci[2,2],3),",",
+                 round(AS.est.ci[2,3],3),")")
+
+
+#for year10
+as.cumci.10 <- paste(round(AS.est.ci[3,1],3),"(",
+                     round(AS.est.ci[3,2],3),",",
+                     round(AS.est.ci[3,3],3),")")
+
+
+LO.cum <- c(Lo.cumest.ci.2,Lo.cumest.ci.5,Lo.cumest.ci.10)
+lrt.cum <- c(Lrt.cumest.ci.2,Lrt.cumest.ci.5,Lrt.cumest.ci.10)
+lrm.cum <- c(Lrm.cumest.ci.2,Lrm.cumest.ci.5,Lrm.cumest.ci.10)
+as.cum <- c(as.cumci.2,as.cumci.5,as.cumci.10)
+
+CUM <- data.frame(LO.cum,lrt.cum,lrm.cum,as.cum)
+
+colnames(CUM)[1] <- "Rate for Lx"
+colnames(CUM)[2] <- "Rate for LRT"
+colnames(CUM)[3] <- "Incidence Rate LRT+Mx"
+colnames(CUM)[4] <- "Incidence Rate for AS"
+
+
+rownames(CUM)[1] <- "Year2"
+rownames(CUM)[2] <- "Year5"
+rownames(CUM)[3] <- "Year10"
+options(xtable.comment = FALSE)
+
+CUM <- xtable(CUM,caption = "Cumulative Incidence Rate for Ipsilateral Invasive Cancer")
+print(CUM,sanitize.text.function=function(x){x})
+```
